@@ -3,6 +3,22 @@
 
 #include "stdafx.h"
 #include "DirectXTutorial.h"
+#include <D3D11.h>
+#include <D3DX11.h>
+#include <D3DX10.h>
+
+//include the Direct3D file once
+#pragma comment (lib, "D3D11.lib")
+#pragma comment (lib, "D3DX11.lib")
+#pragma comment (lib, "D3DX10.lib")
+
+//global declarations
+IDXGISwapChain *swapchain;
+ID3D11Device *dev;
+ID3D11DeviceContext *devcont;
+
+void InitD3D(HWND hWnd);
+void CleanD3D(void);
 
 #define MAX_LOADSTRING 100
 
@@ -196,4 +212,43 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+
+
+void InitD3D(HWND hWnd)
+{
+	//creates a struct to hold information about the swap chain
+	DXGI_SWAP_CHAIN_DESC scd;
+
+	//clear memory
+	ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC));
+
+	scd.BufferCount = 1; //one back buffer
+	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // use 32-bit integer
+	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // how the chain is to be used
+	scd.OutputWindow = hWnd;
+	scd.SampleDesc.Count = 4; // how many multisamples
+	scd.Windowed = TRUE;
+
+	//create a device
+	D3D11CreateDeviceAndSwapChain(NULL,
+		D3D_DRIVER_TYPE_HARDWARE,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		D3D11_SDK_VERSION,
+		&scd,
+		&swapchain,
+		&dev,
+		NULL,
+		&devcont);
+}
+
+
+void CleanD3D(void)
+{
+	swapchain->Release();
+	dev->Release();
+	devcont->Release();
 }
