@@ -12,13 +12,22 @@
 #pragma comment (lib, "D3DX11.lib")
 #pragma comment (lib, "D3DX10.lib")
 
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+
 //global declarations
 IDXGISwapChain *swapchain;
 ID3D11Device *dev;
 ID3D11DeviceContext *devcont;
+ID3D11RenderTargetView *backbuffer;
+ID3D11VertexShader *pVS;
+ID3D11VertexShader *pPS;
+
 
 void InitD3D(HWND hWnd);
 void CleanD3D(void);
+void RenderFrame(void);
+void InitPipeline(void);
 
 #define MAX_LOADSTRING 100
 
@@ -32,7 +41,6 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -50,12 +58,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	wc.lpfnWndProc = WndProc;
 	wc.hInstance = hInstance;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+	//wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
 	wc.lpszClassName = L"WindowClass1";
 
 	RegisterClassEx(&wc);
 
-	RECT wr = { 0, 0, 500, 400 };
+	RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
 
 	hWnd = CreateWindowEx(NULL, L"WindowClass1",
@@ -72,6 +80,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	ShowWindow(hWnd, nCmdShow);
 
+	InitD3D(hWnd);
+
 	MSG msg = { 0 };
 
 	while (true)
@@ -85,6 +95,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			if (msg.message == WM_QUIT)
 				break;
 		}
+		RenderFrame();
+
 	}
 
 	return msg.wParam;
@@ -225,10 +237,13 @@ void InitD3D(HWND hWnd)
 
 	scd.BufferCount = 1; //one back buffer
 	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // use 32-bit integer
+	scd.BufferDesc.Width = SCREEN_WIDTH;
+	scd.BufferDesc.Height = SCREEN_HEIGHT;
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT; // how the chain is to be used
 	scd.OutputWindow = hWnd;
 	scd.SampleDesc.Count = 4; // how many multisamples
 	scd.Windowed = TRUE;
+	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;// allow full screen switching
 
 	//create a device
 	D3D11CreateDeviceAndSwapChain(NULL,
@@ -243,12 +258,52 @@ void InitD3D(HWND hWnd)
 		&dev,
 		NULL,
 		&devcont);
+
+
+	//Set the render target
+	ID3D11Texture2D *pBackBuffer;
+	swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+	dev->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
+	pBackBuffer->Release();
+
+	devcont->OMSetRenderTargets(1, &backbuffer, NULL);
+
+	//Setting the view port
+	D3D11_VIEWPORT viewport;
+	ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = SCREEN_WIDTH;
+	viewport.Height = SCREEN_HEIGHT;
+
+	devcont->RSSetViewports(1, &viewport);
 }
 
+void RenderFrame(void)
+{
+	devcont->ClearRenderTargetView(backbuffer, D3DXCOLOR(0.0f, 0.2f, 0.4f, 1.0f));
+
+	//backbuffer rendering
+
+	swapchain->Present(0, 0);
+}
+
+void InitPipeline(void)
+{
+	// load and compile the two shaders
+	ID3D10Blob *VS, *PS;
+	D3DX11CompileFromFile(L"shaders.shader", 0, 0, "VShader", "vs_4_0", 0, 0, 0, &VS, 0, 0);
+	D3DX11CompileFromFile(L"shaders.shader", 0, 0, "PShader", "ps_4_0", 0, 0, 0, &VS, 0, 0);
+
+	// enca
+}
 
 void CleanD3D(void)
 {
+	swapchain->SetFullscreenState(FALSE, NULL);
 	swapchain->Release();
+	backbuffer->Release();
 	dev->Release();
 	devcont->Release();
 }
